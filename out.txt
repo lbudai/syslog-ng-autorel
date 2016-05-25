@@ -1,0 +1,53 @@
+=> FIXED_ISSUE
+
+
+Use angular.js at the frontend, remove react https://github.com/black-perl/dummy_project/issues/7 Dummy User dummy@gmail.com
+
+
+Some optimisations are required  https://github.com/black-perl/dummy_project/issues/6 Ankush Sharma ankprashar@gmail.com
+
+
+Add additional headers to request repsonse https://github.com/black-perl/dummy_project/issues/4 Ankush Sharma ankprashar@gmail.com
+
+
+====================================================================
+=> BUGFIX
+
+
+Terminal window not opening https://github.com/black-perl/dummy_project/issues/2 Dummy User dummy@gmail.com
+
+
+Black screen appearing on project bootstrap. https://github.com/black-perl/dummy_project/issues/1 Ankush Sharma ankprashar@gmail.com
+
+
+====================================================================
+=> SIMPLE_COMMIT
+
+
+Initialised the repository
+  
+
+
+changed appearance of home page
+  
+
+
+====================================================================
+=> ENHANCEMENT
+
+
+List some songs on the home page https://github.com/black-perl/dummy_project/issues/5 Dummy User dummy@gmail.com
+
+
+Need an alternative API fetching module that renders output as json https://github.com/black-perl/dummy_project/issues/3 Ankush Sharma ankprashar@gmail.com
+
+
+====================================================================
+=> MERGED_PULL
+
+
+Added Feature X.
+https://github.com/black-perl/dummy_project/pull/8 Dummy User dummy@gmail.com
+
+
+====================================================================
