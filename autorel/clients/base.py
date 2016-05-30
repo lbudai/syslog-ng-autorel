@@ -25,9 +25,12 @@ class BaseClient(object):
         'get',
         'post',
         'put',
-        'patch',
         'delete',
     )
+    # Terminal debugging vars 
+    DEBUG_FLAG = False
+    DEBUG_FRAME_BUFFER_SIZE = 1024
+    DEBUG_HEADER_KEY = "DEBUG_FRAME" # Points to the frame in the buffer
 
     def __init__(self,endpoint,port,timeout=None):
         '''
@@ -37,6 +40,44 @@ class BaseClient(object):
         self._port = port
         self._timeout = timeout if timeout else DEFAULT_TIMEOUT
         self._headers = DEFAULT_HEADERS
+        self._startDebugging()
+
+    def _startDebugging(self):
+        '''
+            Initialise debugging varss
+        '''
+        if self.DEBUG_FLAG:
+            self._frameCount = -1 # Performs the index keeping of the last injected debug frame
+            self._frameBuffer = [] # Debug frames storage
+
+    def NEW_DEBUG_FRAME(self,reqHeaders):
+        '''
+            Initialize a debug frame with requestHeaders
+            Frame count is updated and will be attached to respond header
+            The structure of a frame: [requestHeader, statusCode, responseHeader, raw_data]
+            - Some of them takes None value for now
+        '''
+        if self.DEBUG_FLAG: # Debug only when the debug flag is set
+            new_frame = [reqHeaders,None,None,None]
+            if self._frameCount < self.FRAME_BUFFER_SIZE-1:
+                self._frameBuffer.append(new_frame)
+            else:
+                self._frameCount = -1
+                self._frameBuffer[0] = new_frame
+            self._frameCount += 1
+
+    def DEBUG_ON_RESPONSE(self,respHeader,respStatus,respData):
+        '''
+            Add the API response to the debug frame
+        '''
+        if self.DEBUG_FLAG: # Debug only when the debug flag is set
+            self._frameBuffer[1:4] = [respHeader,respStatus,respData]
+            self._frameBuffer[self.DEBUG_HEADER_KEY] = self._frameCount
+
+    def DEBUG_LOGGING(self):
+        if self.DEBUG_LOGGING:
+            # log the frames to the terminal, pass for now
+            pass
 
     def carryRequest(self,method='GET',url='',headers={},params={},payload={}):
         '''
@@ -50,6 +91,7 @@ class BaseClient(object):
         self._headers.update(headers)
         headers = self._headers
         timeout = self._timeout
+        self.NEW_DEBUG_FRAME(headers)
         try:
             if method == 'post' or method == 'put':
                 # encode the payload to json if required
@@ -70,6 +112,7 @@ class BaseClient(object):
                                       params=params,
                                       data=payload,
                                       timeout=timeout)
+                # call self.DEBUG_ON_RESPONSE & self.DEBUG_LOGGING somewhere here
         except Exception as e:
             # handle exception, well pass for now
             pass
