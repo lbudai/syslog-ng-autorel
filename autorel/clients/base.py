@@ -1,12 +1,6 @@
 import requests
 import json
-import sys
-
-__pyversion__ = sys.version_info[0]
-if __pyversion__ == 2: # Python2
-    from urlparse import urljoin
-else: # Python3
-    from urllib.parse import urljoin
+from urllib.parse import urljoin
 
 DEFAULT_HEADERS = {
     'User-Agent' : 'syslog-ng-autorel',
