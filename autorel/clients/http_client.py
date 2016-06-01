@@ -10,6 +10,7 @@ DEFAULT_HEADERS = {
 
 DEFAULT_TIMEOUT = 30
 
+
 class HTTPClient(object):
     '''
         A HTTP client
@@ -92,7 +93,7 @@ class HTTPClient(object):
                 # encode the payload to json if required
                 if headers['Content-Type'] == 'application/json':
                     data = json.dumps(payload)
-                # the payload will automatically be form-encoded
+                # the payload will be automatically form-encoded elsewise
                 else:
                     data = payload
                 result = methodToCall(request_url,
@@ -108,9 +109,11 @@ class HTTPClient(object):
                                       data=payload,
                                       timeout=timeout)
                 # call self.DEBUG_ON_RESPONSE & self.DEBUG_LOGGING somewhere here
+                return result
         except Exception as e:
-            # handle exception, well pass for now
-            pass
+            # Cases where there is no any HTTP Error, Client Errors
+            raise ClientException(e)
+
 
 
     def get(self,url='',headers={},params={}):
@@ -142,3 +145,16 @@ class HTTPClient(object):
             Performs a DELETE request
         '''
         return self.makeRequest('delete',url,headers,params)
+
+
+class ClientException(Exception):
+    '''
+        Throws Exception in case the client is not able to connect to the API server
+        - e error_object
+    '''
+    def __init__(self,e):
+        Exception._init__(self)
+        self._errorObj = e
+
+    def __str__(self):
+        return "ClientException" + " " + str(self._errorObj)
