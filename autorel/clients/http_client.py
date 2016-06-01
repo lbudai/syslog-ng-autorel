@@ -11,9 +11,9 @@ DEFAULT_HEADERS = {
 
 DEFAULT_TIMEOUT = 30
 
-class BaseClient(object):
+class HTTPClient(object):
     '''
-        A Base HTTP client
+        A HTTP client
     '''
     http_methods = (
         'head',
@@ -163,6 +163,3 @@ class BaseClient(object):
             Performs a DELETE request
         '''
         return self.makeRequest('delete',url,headers,params)
-
-
-
