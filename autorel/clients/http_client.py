@@ -1,7 +1,6 @@
 import requests
 import json
 from urllib.parse import urljoin
-from cachecontrol import CacheControl
 
 DEFAULT_HEADERS = {
     'User-Agent' : 'syslog-ng-autorel',
@@ -26,8 +25,6 @@ class HTTPClient(object):
     DEBUG_FLAG = False
     DEBUG_FRAME_BUFFER_SIZE = 1024
     DEBUG_HEADER_KEY = "DEBUG_FRAME" # Points to the frame in the buffer
-    # Connection keep-alive information
-    CONNECTION_STATUS = 'OFF'
 
     def __init__(self,endpoint,port,timeout=None):
         '''
@@ -38,24 +35,6 @@ class HTTPClient(object):
         self._timeout = timeout if timeout else DEFAULT_TIMEOUT
         self._headers = DEFAULT_HEADERS
         self._startDebugging()
-
-    def _makeConnection(self):
-        '''
-            Return a requests session object if exists
-        '''
-        if self.CONNECTION_STATUS == 'OFF':
-            session = requests.session()
-            cached_sess = CacheControl(session)
-            self._connection = cached_sess
-            self.CONNECTION_STATUS = 'ON'
-
-    def _endConnection(self):
-        '''
-            End the underlying TCP connection for the current requests session
-        '''
-        if self.CONNECTION_STATUS == 'ON':
-            self._connection.close()
-            self.CONNECTION_STATUS = 'OFF'
 
     def _startDebugging(self):
         '''
@@ -102,7 +81,7 @@ class HTTPClient(object):
         '''
         method = method.lower()
         self._makeConnection()
-        methodToCall = getattr(self._connection,method)
+        methodToCall = getattr(requests,method)
         request_url = url if url.startswith('http') else urljoin(self._endpoint,url)
         self._headers.update(headers)
         headers = self._headers
