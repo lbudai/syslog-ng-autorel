@@ -27,7 +27,7 @@ class HTTPClient(object):
     DEBUG_FRAME_BUFFER_SIZE = 1024
     DEBUG_HEADER_KEY = "DEBUG_FRAME" # Points to the frame in the buffer
 
-    def __init__(self,endpoint,port,timeout=None):
+    def __init__(self,endpoint,port,headers,params,timeout=None):
         '''
             The Constructor method for a generic client. 
         '''
@@ -35,6 +35,8 @@ class HTTPClient(object):
         self._port = port
         self._timeout = timeout if timeout else DEFAULT_TIMEOUT
         self._headers = DEFAULT_HEADERS
+        self._headers.update(headers)
+        self._params = params
         self._startDebugging()
 
     def _startDebugging(self):
@@ -84,8 +86,8 @@ class HTTPClient(object):
         self._makeConnection()
         methodToCall = getattr(requests,method)
         request_url = url if url.startswith('http') else urljoin(self._endpoint,url)
-        self._headers.update(headers)
-        headers = self._headers
+        headers.update(self._headers)
+        params.update(self._params)
         timeout = self._timeout
         self.NEW_DEBUG_FRAME(headers)
         try:
@@ -96,20 +98,14 @@ class HTTPClient(object):
                 # the payload will be automatically form-encoded elsewise
                 else:
                     data = payload
-                result = methodToCall(request_url,
-                                      headers=headers,
-                                      params=params,
-                                      data=data,
-                                      timeout=timeout,
-                                      verify=False)
+                resp = methodToCall(request_url,headers=headers,params=params,data=data,timeout=timeout,verify=False)
             else:
-                result = methodToCall(request_url,
-                                      headers=headers,
-                                      params=params,
-                                      data=payload,
-                                      timeout=timeout)
-                # call self.DEBUG_ON_RESPONSE & self.DEBUG_LOGGING somewhere here
-                return result
+                resp = methodToCall(request_url,headers=headers,params=params,data=payload,timeout=timeout)
+            # Debug on response
+            self.DEBUG_ON_RESPONSE(resp.headers,resp.status_code,resp.json())
+            # Github API always returns a JSON (https://developer.github.com/v3/#schema)
+            # resp.json() is safe, it won't throw a JSONDecodingError
+            return (resp.status_code,resp.headers,resp.json())
         except Exception as e:
             # Cases where there is no any HTTP Error, Client Errors
             raise ClientException(e)
@@ -149,7 +145,7 @@ class HTTPClient(object):
 
 class ClientException(Exception):
     '''
-        Throws Exception in case the client is not able to connect to the API server
+        Throws Exception in case of Networking Errors
         - e error_object
     '''
     def __init__(self,e):
