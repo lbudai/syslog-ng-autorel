@@ -1,4 +1,4 @@
-## few Helper Classes
+## A few Helper Classes
 
 
 class NotSet(object):
@@ -28,3 +28,23 @@ class Attribute(object):
 
     def setValue(self, value):
         self._value = value
+
+
+class GithubDataType(object):
+
+    """
+        Generic Wrapper class for wrapping Github Objects i.e
+        Commits, Pull Requests
+    """
+    def __init__(self,**kwargs):
+        """
+            Set the attributes by using kwargs, the attributes meta
+            information resides in `attributes` attribute
+        """
+        for attr in self.attributes:
+            if attr in kwargs:
+                attribute = getattr(self,attr)
+                attribute.setValue(kwargs[attr])
+            else:
+                pass
+                #raise KeyError("`{0}` not present in the response".format(attr))
