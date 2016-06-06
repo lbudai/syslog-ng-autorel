@@ -1,16 +1,16 @@
 import base64
 import re
-from http_client import HTTPClient
-from github_exceptions import (BadCredentialsException,
-                               GithubException,
-                               UserAgentException,
-                               ObjectNotFoundException,
-                               UnprocessableEntityException,
-                               TwoFactorAuthException,
-                               LoginAttemptExceededException,
-                               BadRequestException,
-                               RateLimitExceededException
-                               )
+from clients.http_client import HTTPClient
+from clients.github_exceptions import (BadCredentialsException,
+                                       GithubException,
+                                       UserAgentException,
+                                       ObjectNotFoundException,
+                                       UnprocessableEntityException,
+                                       TwoFactorAuthException,
+                                       LoginAttemptExceededException,
+                                       BadRequestException,
+                                       RateLimitExceededException
+                                       )
 
 
 class Github:
@@ -87,26 +87,37 @@ class Github:
         return data
 
 
-class GithubObject:
+class GithubInterface:
 
     """
         Interface to Github API reponse
     """
-
     def __init__(self, client):
         self._requestor = client
 
-    def getValue(self, key, transform):
+    def getValue(self, **kwargs):
         """
-            Returns the value of a particular attribute in response
+            A method to wrap a single API response
         """
-        if key in self._data:
-            if transform:
-                return transform(self._data[key])
-            else:
-                return self._data[key]
+        transform_func = kwargs.pop('transform',None)
+        self._request(**kwargs)
+        if transform_func:
+            return transform_func(**self._data)
         else:
-            raise ValueError("{0} not found in the response".format(key))
+            return self._data
+
+    def getValues(self,**kwargs):
+        """
+            A method to wrap muliple API repsonses i.e
+            a JSON array
+        """
+        transform_func = kwargs.pop('transform',None)
+        self._request(**kwargs)
+        if transform_func:
+            return [transform_func(**data_element)
+                        for data_element in self._data]
+        else:
+            return self._data
 
     def _request(self, **kwargs):
         """
@@ -118,7 +129,7 @@ class GithubObject:
         path_dict = {}
         for path_variable in self._pathVars:
             if path_variable in kwargs:
-                path_dict[path_variable] = kwargs[path_variable]
+                path_dict[path_variable] = kwargs.pop(path_variable)
             else:
                 raise ValueError(
                     'The method expects a {0} parameter'.format(path_variable))
