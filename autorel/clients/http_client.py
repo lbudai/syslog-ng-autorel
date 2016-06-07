@@ -91,7 +91,11 @@ class HTTPClient(object):
           of API endpoint.
         """
         method = method.lower()
-        methodToCall = getattr(requests, method)
+        try:
+            methodToCall = getattr(requests, method)
+        except:
+            e = Exception("The method {0} is not supported".format(method))
+            raise ClientException(e)
         request_url = url if (url.startswith("http") or
             url.startswith('https')) else urljoin(self._endpoint, url)
         headers.update(self._headers)
