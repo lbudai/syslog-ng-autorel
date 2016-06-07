@@ -128,31 +128,31 @@ class HTTPClient(object):
         """
             Performs a GET request
         """
-        return self.makeRequest("get", url, headers, params)
+        return self.carryRequest("get", url, headers, params)
 
     def head(self, url="", headers={}, params={}):
         """
             Performs a HEAD request
         """
-        return self.makeRequest("head", url, headers, params)
+        return self.carryRequest("head", url, headers, params)
 
     def post(self, url="", headers={}, params={}, payload={}):
         """
             Performs a POST request
         """
-        return self.makeRequest("post", url, headers, params, payload)
+        return self.carryRequest("post", url, headers, params, payload)
 
     def put(self, url="", headers={}, params={}, payload={}):
         """
             Performs a PUT request
         """
-        return self.makeRequest("put", url, headers, params, payload)
+        return self.carryRequest("put", url, headers, params, payload)
 
     def delete(self, url="", headers={}, params={}):
         """
             Performs a DELETE request
         """
-        return self.makeRequest("delete", url, headers, params)
+        return self.carryRequest("delete", url, headers, params)
 
 
 class ClientException(Exception):
