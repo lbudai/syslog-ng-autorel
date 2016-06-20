@@ -135,7 +135,15 @@ class DistTarballBuilder(object):
             Returns the path of the generated tarball on the
             host machine
         """
-        pass
+        lookup_directory = os.path.join(self._source_directory,
+                                        "syslog-ng/build")
+        os.chdir(lookup_directory)
+        file_locations = glob.glob("syslog-ng-*.tar.gz")
+        if len(file_locations) != 1:
+            # TODO : Add appropriate class
+            raise Exception("Tarball generation error")
+        file_path = os.path.abspath(file_locations[0])
+        return file_path
 
 
 if __name__ == "__main__":
@@ -146,3 +154,5 @@ if __name__ == "__main__":
     d.configure()
     d.compile()
     d.distcheck()
+    file_path = d.getDistTarball()
+    print(file_path)
