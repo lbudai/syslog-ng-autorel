@@ -9,6 +9,7 @@ import tempfile
 import pygit2
 import os
 import sys
+import glob
 from docker_cli import Docker
 
 
@@ -44,13 +45,13 @@ class DistTarballBuilder(object):
         pygit2.clone_repository(self._source_url,
                                 path=repo_path)
 
-    def _setup(self):
+    def setup(self):
         """
             Sets up the building environment by pulling the
-            image from image_name and copying the downloaded
-            source into the image
+            image using image_name and copies the downloaded
+            source into the container
         """
-        ## Download the source code in the container
+        ## Download the source code
         self._logger.info("Downloading source code")
         self._download_source()
         self._logger.info("Souce code successfuly downloaded at {0}"
@@ -66,14 +67,14 @@ class DistTarballBuilder(object):
         ## Create a container in daemon mode
         self._logger.info("Running a container using the image")
         host_config = self._docker_cli.cli_command("create_host_config",
-                                                    response=True,
-                                                    binds={
+                                                   response=True,
+                                                   binds={
                                                        self._source_directory : {
                                                            'bind': '/home/',
                                                            'mode': 'rw'
                                                        }
-                                                    }
-                                                    )
+                                                   }
+                                                   )
         container = self._docker_cli.cli_command("create_container",
                                                  response=True,
                                                  image=self._image_name,
@@ -93,6 +94,7 @@ class DistTarballBuilder(object):
 
     def configure(self):
         """
+            ./autogen.sh && configure
         """
         commands = [
             "(cd /home/syslog-ng && pip install -r requirements.txt) ; echo $?",
@@ -130,6 +132,8 @@ class DistTarballBuilder(object):
 
     def getDistTarball(self):
         """
+            Returns the path of the generated tarball on the
+            host machine
         """
         pass
 
@@ -138,7 +142,7 @@ if __name__ == "__main__":
     d = DistTarballBuilder("balabit/syslog-ng",
                            "git://github.com/balabit/syslog-ng",
                            "ankcodes/syslog-ng-build")
-    d._setup()
+    d.setup()
     d.configure()
     d.compile()
     d.distcheck()

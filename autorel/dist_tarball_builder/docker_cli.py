@@ -30,7 +30,8 @@ class Docker(object):
             Runs a docker client command and returns output if response
             flag is set to be True else a streamed response is sent to the
             debug log section.
-            Also, Checks the execution status of a command.
+            Also, Checks the execution status of a command provided
+            check_execution_status flag is set.
         """
         self._logger.debug("Running {0} command on docker client"
             .format(command_))
@@ -76,4 +77,3 @@ class Docker(object):
                          exec_instance.get('Id'),
                          check_execution_status=True
                          )
-
