@@ -25,7 +25,7 @@ class Docker(object):
         Build the source code in a docker environment using the
         supplied builder instance
     """
-    def __init__(self, builder):
+    def __init__(self):
         self._cli = Client(base_url="unix://var/run/docker.sock",
                            version="auto"
                            )
