@@ -1,121 +1,103 @@
-## Main changelog generation logic goes here
+"""
+    @module chnagelog_gen
+    @class ChnagelogGenerator
+"""
 import pygit2
-from parser import Parser
-from parser_config import PARSING_FUNCTIONS
-from structures import (PullRequest,
-                        Issue,
-                        Contributor
-                        )
-from settings import (PROJECT,
-                      CLONE_URL
-                      )
-from github_plugin import (getPull,
-                           getCommitList,
-                           getIssue
-                           )
-
-
-class ChangelogEntry(object):
-    """
-        Defines a changelog entry
-    """
-    def __init__(self, category, contributor, url, text):
-        self._category = category
-        self._contributor = contributor
-        self._url = url
-        self._text = text
-
-    @property
-    def url(self):
-        return self._url
-
-    @property
-    def text(self):
-        return self._text
-
-    @property
-    def contributor(self):
-        return self._contributor
-
-    @property
-    def category(self):
-        return self._category
+import logging
+import sys
+from changelog_generator.settings import (ENHANCEMENT,
+                                          BUGFIX,
+                                          FIXED_ISSUE,
+                                          MERGED_PULL,
+                                          BUG_LABEL,
+                                          ENHANCEMENT_LABEL
+                                          )
+from changelog_generator.structures import (PullRequest,
+                                            Issue,
+                                            Contributor
+                                            )
+from .helpers import ChangelogEntry
 
 
 class ChangelogGenerator(object):
     """
         The Changelog Generator class
     """
-    # The generated changelog will contain the following categories
     categories = (
-        "enhancement",
-        "bugfix",
-        "fixed_issue",
-        "merged_pull"
+        ENHANCEMENT,
+        BUGFIX,
+        FIXED_ISSUE,
+        MERGED_PULL
     )
+    __parser = None
+    __fetcher = None
 
-    def __init__(self):
-        self._user,self._repoName = tuple(PROJECT.split('/'))
-        # A dict of ChangelogEntry objects
-        self._entries = {}
-        # Initialise the supported categories
+    @classmethod
+    def configure(cls, parser, fetcher):
+        cls.__parser = parser
+        cls.__fetcher = fetcher
+
+    def __init__(self, repo_path, last_tagged_commit):
+        self._repo = pygit2.Repository(repo_path)
+        self._last_tagged_commit = last_tagged_commit
+        self._entries = {} # Generated ChangelogEntry objects
         for entry in self.categories:
             self._entries[entry] = []
-        # List of commit objects for the repo
         self._commits = []
-        # A dict to keep track of traversal of commits
-        self._commit_map = {}
+        self._commit_map = {} # Traveral record keeping of commits
+        # Configure logger
+        self._logger = logging.getLogger(__name__)
+        self._logger.setLevel(logging.DEBUG)
+        channel = logging.StreamHandler(sys.stdout)
+        channel.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        channel.setFormatter(formatter)
+        self._logger.addHandler(channel)
 
-    def _configure_parser(self):
+    def _mark_commit_node(self, commit):
         """
-            Configure the parser for different paring funtions
+            Mark a commit node visited
         """
-        self._parser = Parser(["issues","merges"])
-        for type_ in PARSING_FUNCTIONS.keys():
-            for parsing_func in PARSING_FUNCTIONS[type_]:
-                self._parser.addParser(type_,parsing_func)
+        self._commit_map[commit.hex] = True
 
-    def _clone_repository(self):
+    def _get_commit_node_status(self, commit):
         """
-            Clone and instanstiate a repo instance
+            Check if a commit node is visited or not
         """
-        clone_path = '/tmp/{0}'.format(self._repoName)
-        self._repo = pygit2.Repository(clone_path)
-        #self._repo = pygit2.clone_repository(CLONE_URL,clone_path)
+        return self._commit_map[commit.hex]
 
-    def _generate_commit_map(self):
-        # TODO : change the head according to last tagged commit
-        tag_commit = "af342a6c677e7c5da6b1cacebfc3019cbe870e43"
-        for commit in self._repo.walk(self._repo.head.target,
-                      pygit2.GIT_SORT_TOPOLOGICAL):
-            # Stop at this
-            if commit.hex  == tag_commit:
+    def _generate_commit_map(self, ):
+        """
+            Collect all commits from the last tag point
+            and initialise the structures
+        """
+        for commit in self._repo.walk(self._repo.head.target,pygit2.GIT_SORT_TOPOLOGICAL):
+            if commit.hex == self._last_tagged_commit:
                 break
-            self._commits.append(commit)
-            # key <= commit hex value & value <= (chronological order of commit,visited)
-            # Initially all commit nodes are unvisited, so set it false
-            self._commit_map[commit.hex] = list([len(self._commits)-1,False])
+            else:
+                self._commits.append(commit)
+                self._commit_map[commit.hex] = False
 
     def _add_changelog_entry(self, entry_obj):
         """
             Add an entry to the changelog
         """
         if isinstance(entry_obj,PullRequest):
-            category = "merged_pull"
+            category = MERGED_PULL
             changelog_entry = ChangelogEntry(category,
                                              entry_obj.contributor,
                                              entry_obj.url,
                                              entry_obj.title
                                              )
         elif isinstance(entry_obj,Issue):
-            if "bug" in entry_obj.labels:
-                category = "bugfix"
-            elif "enhancement" in entry_obj.labels:
-                category = "enhancement"
+            if BUG_LABEL in entry_obj.labels:
+                category = BUGFIX
+            elif ENHANCEMENT_LABEL in entry_obj.labels:
+                category = ENHANCEMENT
             else:
-                category = "fixed_issue"
+                category = FIXED_ISSUE
             changelog_entry = ChangelogEntry(category,
-                                             entry_obj.contributor,
+                                             entry_obj.contributors,
                                              entry_obj.url,
                                              entry_obj.title
                                              )
@@ -134,57 +116,49 @@ class ChangelogGenerator(object):
         self._pull_ids = []
 
         for commit in self._commits:
-            # A merge commit has at least 2 parent commits
-            # in case its a standard pull request merge
+            # Normal merge commit nodes
             if len(commit.parents) >= 2:
                 merge_commits.append(commit)
-            # The case when we avoid the extra "merge commit"
-            # Commit squashing case
-            elif commit.author != commit.committer:
+            # Squashed commit nodes
+            elif commit.author.name != commit.committer.name:
                 merge_commits.append(commit)
 
-        # parse the merge commits
         for commit in merge_commits:
-            self._commit_map[commit.hex][1] = True # Mark the node visited
-            parsed_data = self._parser.parse("merges", commit.message)
-            if parsed_data:
-                # CASE 1 : It is a local checkout
-                if parsed_data[1] == "merged_branch":
-                    branch_description = parsed_data[0]
-                    # Create changelog entry for the merged branch
-                    contributor = Contributor(commit.author.name,
-                                              commit.author.email,
-                                              None
-                                              )
-                    changelog_entry = ChangelogEntry("merged_pull",
-                                                     contributor,
-                                                     None,
-                                                     "{0} : {1}".format(branch_description,
-                                                                        commit.message.split('\n')[0])
-                                                     )
-                    self._add_changelog_entry(changelog_entry)
-                # CASE 2 : It is a pull request
-                elif parsed_data[1] == "pull_id":
-                    pull_request_id = parsed_data[0]
-                    self._pull_ids.append(pull_request_id)
+            # Case 1 : It is a local checkout
+            # Case 2 : It is a pull request merge
+            merged_branch = self.__parser.parse_merged_branch(commit.message)
+            pull_request_id = self.__parser.parse_pull_id(commit.message)
+            if merged_branch:
+                # Create changelog entry for the merged branch
+                contributor = Contributor(commit.author.name,
+                                          commit.author.email,
+                                          None
+                                          )
+                changelog_entry = ChangelogEntry(MERGED_PULL,
+                                                 contributor,
+                                                 None,
+                                                 "{0} : {1}".format(merged_branch,
+                                                                    commit.message.split('\n')[0])
+                                                 )
+                self._add_changelog_entry(changelog_entry)
+            elif pull_request_id:
+                self._pull_ids.append(pull_request_id)
             else:
-                # Debugging
-                #print(commit.message)
-                pass
+                self._logger.debug(commit.parents)
+                self._logger.debug(commit.author.name + " " + commit.committer.name)
+                self._logger.debug("Unrecognized merge commit : {0}".format(commit.hex))
 
     def _mark_merged_commits(self):
         """
             Mark the merged commits visited
         """
         for pull_id in self._pull_ids:
-            involved_commits = getCommitList(pull_id)
+            involved_commits = self.__fetcher.get_commit_list(pull_id)
             for commit in involved_commits:
-                # Mark the commit nodes visited
                 try:
-                    self._commit_map[commit.hex][1] = True
+                    self._mark_commit_node(commit)
                 except KeyError:
-                    # When the commit is not part of this release
-                    pass
+                    self._logger.debug("{0} not found in commit list".format(commit.hex))
 
     def _parse_commits_for_issue_nodes(self):
         """
@@ -192,26 +166,22 @@ class ChangelogGenerator(object):
         """
         issue_commit_list = []
         for commit in self._commits:
-            # the commit node should be unvisited
-            if self._commit_map[commit.hex][1] is False:
-                parsed_data = self._parser.parse("issues", commit.message)
-                if parsed_data:
-                    if parsed_data[1] == "issue_ids":
-                        issue_ids = parsed_data[0]
-                        for issue_id in issue_ids:
-                            issue_commit_list.append(tuple((
-                                                        commit,
-                                                        issue_id
-                                                    )))
-                    # mark the commit node visited
-                    self._commit_map[commit.hex][1] = True
+            if not self._get_commit_node_status(commit):
+                issue_ids = self.__parser.parse_issue_id(commit.message)
+                if issue_ids:
+                    for issue_id in issue_ids:
+                        issue_commit_list.append(tuple((
+                                                    commit,
+                                                    issue_id
+                                                )))
+                self._mark_commit_node(commit)
         # Create changelog entries for all the independent issues
         for element in issue_commit_list:
             issue_id = element[1]
             commit = element[0]
-            issue_obj = getIssue(issue_id,
-                                 commit=commit
-                                 )
+            issue_obj = self.__fetcher.get_issue(issue_id,
+                                                 commit=commit
+                                                 )
             self._add_changelog_entry(issue_obj)
 
     def _extract_linked_issues(self):
@@ -219,59 +189,45 @@ class ChangelogGenerator(object):
             Extract issues linked to pull requests
         """
         issue_pull_list = []
-        for pull_detail in self._pull_ids:
-            pull_id = pull_detail
-            pull_obj = getPull(pull_id)
-            parsed_data = self._parser.parse("issues", pull_obj.body)
-            if parsed_data:
-                if parsed_data[1] == "issue_ids":
-                    issue_ids = parsed_data[0]
-                    for issue_id in issue_ids:
-                        issue_pull_list.append(tuple((
-                                                pull_id,
-                                                issue_id
-                                              )))
+        for pull_id in self._pull_ids:
+            pull_obj = self.__fetcher.get_pull(pull_id)
+            issue_ids = self.__parser.parse_issue_id(pull_obj.body)
+            if issue_ids:
+                for issue_id in issue_ids:
+                    issue_pull_list.append(tuple((
+                                            pull_id,
+                                            issue_id
+                                          )))
             else:
                 self._add_changelog_entry(pull_obj)
 
         # Create changelog entries for all the issues liked with pull requests
-        for element in issue_pull_list:
-            issue_id = element[1]
-            pull_id = element[0]
-            issue_obj = getIssue(issue_id,
-                                 pull_id=pull_id
-                                 )
+        for issue_id,pull_id in issue_pull_list:
+            issue_obj = self.__fetcher.get_issue(issue_id,
+                                                 pull_id=pull_id
+                                                 )
             self._add_changelog_entry(issue_obj)
 
     def generate(self):
         """
             Generate the changelog according to last provided tag
         """
-        self._clone_repository()
+        self._logger.info("Generating commit map.")
         self._generate_commit_map()
-        self._configure_parser()
+        self._logger.info("Parsing commits for merge nodes.")
         self._parse_commits_for_merge_nodes()
+        self._logger.info("Marking merge commits.")
         self._mark_merged_commits()
+        self._logger.info("Parsing commits for issue nodes.")
         self._parse_commits_for_issue_nodes()
+        self._logger.info("Extracting linked issues.")
         self._extract_linked_issues()
 
-    def render(self):
+    def render(self, template):
         """
             Render the changelog in markdown format
         """
-        for key in self._entries:
-            print(key)
-            print("--------")
-            print("--------")
-            print("\n\n")
-            for entry in self._entries[key]:
-                print("- {0}     [Link]({1})    {3}".format(entry.text,
-                                                    entry.url,
-                                                    entry.committer.name
-                                                    )
-                     )
-                print('\n')
-
+        pass
 
 if __name__ == "__main__":
     generator = ChangelogGenerator()
