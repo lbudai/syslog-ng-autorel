@@ -1,6 +1,10 @@
-## Changelog generator accepts values as instances
-## of the following structures, helper functions (plugins)
-## should return instances of these classes only
+"""
+    @module chnagelog_structures
+    @classes Contributor, PullRequest, Issue, Commit
+    - Changelog generator accepts values as instances
+      of the following classes and all Fetcher instances
+      should return instances of these classes only
+"""
 
 
 class Contributor(object):
@@ -60,14 +64,17 @@ class Issue(object):
     """
 
     def __init__(self, title, body, labels,
-        url, pull_obj = None, opener = None, closer = None):
+            url, contributors=None):
         self._title = title
         self._body = body
         self._labels = labels
         self._url = url
-        self._liked_pull = pull_obj
-        self._opener = opener
-        self._closer = closer
+        if type(contributors) == list:
+            self._contributors = contributors
+        else:
+            self._contributors = []
+            self._contributors.append(contributors)
+
 
     @property
     def title(self):
@@ -86,22 +93,11 @@ class Issue(object):
         return self._labels
 
     @property
-    def linked_pull(self):
-        return self._linked_pull
-
-    @property
-    def opener(self):
+    def contributors(self):
         '''
-            Contributor who opened the issue
+            Issue contributors
         '''
-        return self._opener
-
-    @property
-    def closer(self):
-        '''
-            Contributor who closed the issue
-        '''
-        return self._closer
+        return self._contributors
 
 
 class Commit(object):
