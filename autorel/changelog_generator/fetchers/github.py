@@ -1,14 +1,14 @@
 ## Helper functions to fetch Pull Requests & Issues information from github
 ## To support GitLab and other platforms, similar helper functions should be wrote
 from github import Github
-from settings import (AUTH_TOKEN,
-                      PROJECT
-                      )
-from structures import (PullRequest,
-                        Issue,
-                        Contributor,
-                        Commit
-                        )
+from changelog_generator.settings import (GITHUB_AUTH_TOKEN,
+                                          PROJECT
+                                          )
+from changelog_generator.main import (PullRequest,
+                    Issue,
+                    Contributor,
+                    Commit
+                    )
 
 
 # Instantiate the client
