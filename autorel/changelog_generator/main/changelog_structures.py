@@ -11,6 +11,7 @@ class Contributor(object):
     def __init__(self, name, email, url):
         self._name = name
         self._email = email
+        self._url = url
 
     @property
     def name(self):
@@ -59,13 +60,14 @@ class Issue(object):
     """
 
     def __init__(self, title, body, labels,
-        url, pull_obj = None, contributor=None):
+        url, pull_obj = None, opener = None, closer = None):
         self._title = title
         self._body = body
         self._labels = labels
         self._url = url
-        self._pull_obj = pull_obj
-        self._contributor = contributor
+        self._liked_pull = pull_obj
+        self._opener = opener
+        self._closer = closer
 
     @property
     def title(self):
@@ -84,12 +86,22 @@ class Issue(object):
         return self._labels
 
     @property
-    def pull_obj(self):
-        return self._pull_obj
+    def linked_pull(self):
+        return self._linked_pull
 
     @property
-    def contributor(self):
-        return self._contributor
+    def opener(self):
+        '''
+            Contributor who opened the issue
+        '''
+        return self._opener
+
+    @property
+    def closer(self):
+        '''
+            Contributor who closed the issue
+        '''
+        return self._closer
 
 
 class Commit(object):
