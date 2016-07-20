@@ -202,7 +202,7 @@ class ChangelogGenerator(object):
                 self._add_changelog_entry(pull_obj)
 
         # Create changelog entries for all the issues liked with pull requests
-        for issue_id,pull_id in issue_pull_list:
+        for pull_id,issue_id in issue_pull_list:
             issue_obj = self.__fetcher.get_issue(issue_id,
                                                  pull_id=pull_id
                                                  )
