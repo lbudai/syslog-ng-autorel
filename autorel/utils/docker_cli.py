@@ -136,7 +136,7 @@ class Docker(object):
             raise Exception("Another container is running with ID : {0}"
                 .format(self._container_id))
         self._setup(builder.image,
-                    builder.source_directory)
+                    builder.input_directory)
         self._logger.info("Running {0}".format(builder))
         for cmd in builder.build_commands:
             self._logger.info("Running : {0}".format(cmd))
