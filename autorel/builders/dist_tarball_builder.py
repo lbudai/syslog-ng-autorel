@@ -15,9 +15,10 @@ class DistTarballBuilder(object):
         Responsible for downloading souce code and carry out
         build process to generate the distribution tarball.
     """
-    def __init__(self, input_directory, image_name):
+    def __init__(self, input_directory, image_name, version):
         self._input_directory = input_directory
         self._image_name = image_name
+        self._version = version
 
     @property
     def image(self):
@@ -25,6 +26,9 @@ class DistTarballBuilder(object):
 
     @property
     def input_directory(self):
+        """
+            This directory serves as the mount volume
+        """
         return self._input_directory
 
     @property
@@ -46,10 +50,10 @@ class DistTarballBuilder(object):
     @property
     def result(self):
         """
-            Returns the path of the generated tarball on the
-            host machine
+            Returns the path of the directory containing the generated
+            tarball on the host machine
         """
-        lookup_directory = os.path.join(self._source_directory,
+        lookup_directory = os.path.join(self._input_directory,
                                         "syslog-ng/build"
                                         )
         os.chdir(lookup_directory)
@@ -58,13 +62,13 @@ class DistTarballBuilder(object):
             # TODO : Add appropriate class
             raise Exception("Tarball generation error")
         current_tarball_path = os.path.abspath(file_locations[0])
-        tarbalL_name = os.path.basename(current_tarball_path)
+        tarball_name = "syslog-ng_{0}.orig.tar.gz".format(self._version)
         # return a sandboxed distribution tarball
         new_tarball_path = os.path.join(tempfile.mkdtemp(),
-                                        tarbalL_name
+                                        tarball_name
                                         )
         copyfile(current_tarball_path,new_tarball_path)
-        return new_tarball_path
+        return os.path.dirname(new_tarball_path)
 
     def __str__(self):
         return "DistTarballBuilder : Distribution tarball builder class"
