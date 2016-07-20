@@ -7,13 +7,13 @@ import sys
 from docker import Client
 
 
-class ExecutionFailure(Exception):
+class DockerException(Exception):
     """
-        Exception thrown when a command fails
-        to execute successfuly
+        Exceptions corresponding to Docker
+        class
     """
     def __init__(self, message):
-        super(self, FailedCommand).__init__(self)
+        super(self, DockerException).__init__(self)
         self._message = message
 
     def __str__(self):
@@ -83,7 +83,7 @@ class Docker(object):
                                         response=True
                                         )
         if exec_status["ExitCode"] != 0:
-            raise ExecutionFailure(response)
+            raise CommandFailure(response)
 
 
     def _setup(self, image, source_directory):
