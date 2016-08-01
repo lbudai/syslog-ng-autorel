@@ -160,9 +160,8 @@ class ChangelogGenerator(object):
             elif pull_request_id:
                 self._pull_ids.append(pull_request_id)
             else:
-                self._logger.debug(commit.parents)
-                self._logger.debug(commit.author.name + " " + commit.committer.name)
-                self._logger.debug("Unrecognized merge commit : {0}".format(commit.hex))
+                # these are commits corresponding to a merge
+                pass
 
     def _parse_commits_for_issue_nodes(self):
         """
