@@ -56,6 +56,7 @@ class ChangelogRenderer(object):
                                      )
         f = open(file_path,'w')
         for category in self._categories:
+          if len(self._entries[category]) != 0:
             print(self._section_headers[category], file=f)
             print("=============================", file=f)
             for entry in self._entries[category]:
