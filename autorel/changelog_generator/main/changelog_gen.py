@@ -17,6 +17,7 @@ from changelog_generator.structures import (PullRequest,
                                             Contributor
                                             )
 from .helpers import ChangelogEntry
+from .changelog_renderer import ChangelogRenderer
 
 
 class ChangelogGenerator(object):
@@ -24,8 +25,8 @@ class ChangelogGenerator(object):
         The Changelog Generator class
     """
     categories = (
-        ENHANCEMENT,
         BUGFIX,
+        ENHANCEMENT,
         FIXED_ISSUE,
         MERGED_PULL
     )
@@ -44,7 +45,8 @@ class ChangelogGenerator(object):
         for entry in self.categories:
             self._entries[entry] = []
         self._commits = []
-        self._commit_map = {} # Traveral record keeping of commits
+        self._commit_map = {} # Traversal record keeping of commits
+        self._issues_map = {} # Traversal record keeping of issues
         # Configure logger
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.DEBUG)
@@ -60,13 +62,27 @@ class ChangelogGenerator(object):
         """
         self._commit_map[commit.hex] = True
 
+    def _mark_issue_node(self, issue_id):
+        """
+            Mark a issue node visited
+        """
+        self._issues_map[issue_id] = True
+
     def _get_commit_node_status(self, commit):
         """
             Check if a commit node is visited or not
         """
         return self._commit_map[commit.hex]
 
-    def _generate_commit_map(self, ):
+    def _get_issue_node_status(self, issue_id):
+        """
+            Check if a issue node is visited or not
+        """
+        if issue_id not in self._issues_map.keys():
+            return False
+        return self._issues_map[issue_id]
+
+    def _generate_commit_map(self):
         """
             Collect all commits from the last tag point
             and initialise the structures
@@ -148,18 +164,6 @@ class ChangelogGenerator(object):
                 self._logger.debug(commit.author.name + " " + commit.committer.name)
                 self._logger.debug("Unrecognized merge commit : {0}".format(commit.hex))
 
-    def _mark_merged_commits(self):
-        """
-            Mark the merged commits visited
-        """
-        for pull_id in self._pull_ids:
-            involved_commits = self.__fetcher.get_commit_list(pull_id)
-            for commit in involved_commits:
-                try:
-                    self._mark_commit_node(commit)
-                except KeyError:
-                    self._logger.debug("{0} not found in commit list".format(commit.hex))
-
     def _parse_commits_for_issue_nodes(self):
         """
             Parses the commits messages for the issue ids
@@ -179,10 +183,11 @@ class ChangelogGenerator(object):
         for element in issue_commit_list:
             issue_id = element[1]
             commit = element[0]
-            issue_obj = self.__fetcher.get_issue(issue_id,
-                                                 commit=commit
-                                                 )
-            self._add_changelog_entry(issue_obj)
+            if not self._get_issue_node_status(issue_id):
+                issue_obj = self.__fetcher.get_issue(issue_id,
+                                                     commit=commit
+                                                     )
+                self._add_changelog_entry(issue_obj)
 
     def _extract_linked_issues(self):
         """
@@ -203,6 +208,7 @@ class ChangelogGenerator(object):
 
         # Create changelog entries for all the issues liked with pull requests
         for pull_id,issue_id in issue_pull_list:
+            self._mark_issue_node(issue_id)
             issue_obj = self.__fetcher.get_issue(issue_id,
                                                  pull_id=pull_id
                                                  )
@@ -216,18 +222,20 @@ class ChangelogGenerator(object):
         self._generate_commit_map()
         self._logger.info("Parsing commits for merge nodes.")
         self._parse_commits_for_merge_nodes()
-        self._logger.info("Marking merge commits.")
-        self._mark_merged_commits()
-        self._logger.info("Parsing commits for issue nodes.")
-        self._parse_commits_for_issue_nodes()
         self._logger.info("Extracting linked issues.")
         self._extract_linked_issues()
+        self._logger.info("Parsing commits for issue nodes.")
+        self._parse_commits_for_issue_nodes()
 
-    def render(self, template):
+
+    def render(self, file_path=None):
         """
             Render the changelog in markdown format
         """
-        pass
+        self._logger.info("Converting chnagelog to markdown format.")
+        renderer = ChangelogRenderer(self._entries)
+        return renderer.render(file_path)
+
 
 if __name__ == "__main__":
     generator = ChangelogGenerator()
