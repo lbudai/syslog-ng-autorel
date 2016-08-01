@@ -51,7 +51,7 @@ class GithubFetcher(Fetcher):
         title = pull_req_obj.title
         contributor_name = pull_req_obj.user.name or pull_req_obj.user.login
         contributor_email = pull_req_obj.user.email
-        contributor_url = pull_req_obj.user.url
+        contributor_url = pull_req_obj.user.html_url
         contributor = Contributor(contributor_name,
                                   contributor_email,
                                   contributor_url
@@ -82,7 +82,7 @@ class GithubFetcher(Fetcher):
         title = issue_obj.title
         issue_opener = Contributor(issue_obj.user.name or issue_obj.user.login,
                                    issue_obj.user.email,
-                                   issue_obj.user.url)
+                                   issue_obj.user.html_url)
         labels_list = issue_obj.labels
         labels = []
         for label_obj in labels_list:
