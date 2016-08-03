@@ -83,7 +83,7 @@ class Docker(object):
                                         response=True
                                         )
         if exec_status["ExitCode"] != 0:
-            raise CommandFailure(response)
+            raise DockerException(response)
 
 
     def _setup(self, image, source_directory):
@@ -127,24 +127,27 @@ class Docker(object):
         self._logger.info("Container ({0}) is successfuly running"
             .format(self._container_id))
 
-    def run(self, builder):
+    def run(self, image, input_directory, build_commands, transformer):
         """
-            Runs build instructions corresponding to
-            a builder instance
+            Runs build instructions corresponding to the provided 
+            build commands by running a docker container using the 
+            provided image. Finally the result is returned after carying out
+            a tranformer operation
         """
         if self._running:
-            raise Exception("Another container is running with ID : {0}"
+            raise DockerException("Another container is running with ID : {0}"
                 .format(self._container_id))
-        self._setup(builder.image,
-                    builder.input_directory)
-        self._logger.info("Running {0}".format(builder))
+        self._setup(image,
+                    input_directory
+                    )
+        self._logger.info("Running a docker container using {0}".format(image))
         for cmd in builder.build_commands:
             self._logger.info("Running : {0}".format(cmd))
             self._exec_in_container(cmd)
             self._logger.info("Finished : {0}".format(cmd))
-        self._logger.info("Finished {0}".format(builder))
         # Stop the container
         self._cli_command("stop",
                           container=self._container_id)
+        self._logger.info("Finished running docker container")
         self._running = False
-        return builder.result
+        return tranformer(result)
