@@ -53,3 +53,37 @@ class Platform(object):
         orig_branch_ref = self._repo.get_git_ref(orig_branch)
         latest_commit_sha = orig_branch_ref.object.sha
         self._repo.create_git_ref(new_branch,latest_commit_sha)
+
+    def create_commit(self, orig_branch, file_path, commit_message):
+        """
+            Creates a commit to the orig_branch by adding a file given by file_path
+            and using a provided commit_message
+        """
+        ## find the latest commit SHA on the orig_branch
+        orig_branch_ref = self._repo.get_git_ref(orig_branch)
+        latest_commit_sha = orig_branch_ref.object.sha
+        ## find the base tree to be written out
+        latest_commit = self._repo.get_commit(latest_commit_sha)
+        base_tree = latest_commit.commit.tree
+        ## create a new tree
+        with open(file_path,'r') as f:
+            file_contents = f.read()
+        # specifications required to create a new tree
+        new_tree_specs = InputGitTreeElement(path=file_path,
+                                             mode="100644",
+                                             type="blob",
+                                             content=file_contents
+                                             )
+        new_tree = self._repo.create_git_tree(base_tree=base_tree,
+                                              tree=[new_tree_specs]
+                                              )
+        ## create a new commit on the new_tree
+        parent_commits = [latest_commit]
+        created_commit = self._repo.create_git_commit(message=commit_message,
+                                                      tree=new_tree,
+                                                      parents=parent_commits,
+                                                      author=self._committer,
+                                                      committer=self._committer
+                                                      )
+        ## update the orig_branch to reference created_commit
+        orig_branch_ref.edit(sha=created_commit.sha)
