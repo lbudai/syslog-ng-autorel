@@ -4,7 +4,7 @@
     source tarballs and debian source packages
 """
 import os
-from builders.settings import (DEBIAN_SOURCE_BUILDING_IMAGE,
+from build_helpers.settings import (DEBIAN_SOURCE_BUILDING_IMAGE,
                                ORIG_TARBALL_FILE_WILDCARD,
                                PATCH_FILE_WIDLCARD,
                                SOURCE_CONTROL_FILE_WILDCARD,
