@@ -9,7 +9,9 @@ from github import (Github,
                     InputGitTreeElement,
                     InputGitAuthor
                     )
-from .settings import GITHUB_AUTH_TOKEN
+from .settings import (GITHUB_AUTH_TOKEN,
+                       TZ_OFFSET
+                       )
 
 
 class Platform(object):
@@ -21,15 +23,21 @@ class Platform(object):
         self._client = Github(GITHUB_AUTH_TOKEN)
         self._repo = self._client.get_repo(self._project)
 
-    def add_committer(self, name, email):
+    @property
+    def _contributor(self):
+        date = datetime.datetime.now().isoformat()
+        date += "+05:30"
+        return InputGitAuthor(name=self._contributor_name,
+                              email=self._contributor_email,
+                              date=date
+                              )
+
+    def set_committer(self, name, email):
         """
-            Create a git committer/author
+            Set a git committer/author info
         """
-        date = datetime.datetime.utcnow().isoformat()
-        self._committer = InputGitAuthor(name=name,
-                                         email=email,
-                                         date=date
-                                         )
+        self._contributor_name = name
+        self._contributor_email = email
 
     def get_current_release(self):
         """
@@ -52,7 +60,9 @@ class Platform(object):
         # Get the SHA value of the latest commit on the orig_branch
         orig_branch_ref = self._repo.get_git_ref(orig_branch)
         latest_commit_sha = orig_branch_ref.object.sha
-        self._repo.create_git_ref(new_branch,latest_commit_sha)
+        self._repo.create_git_ref(ref=new_branch,
+                                  sha=latest_commit_sha
+                                  )
 
     def create_commit(self, orig_branch, file_path, commit_message):
         """
@@ -87,3 +97,42 @@ class Platform(object):
                                                       )
         ## update the orig_branch to reference created_commit
         orig_branch_ref.edit(sha=created_commit.sha)
+        return created_commit.sha
+
+    def create_pull_request(self, title, body, branch_a, branch_b):
+        """
+            Sends a pull request from branch_a to branch_b
+        """
+        self._repo.create_pull_request(title=title,
+                                       body=body,
+                                       head=branch_a,
+                                       base=branch_b
+                                       )
+
+    def create_annoted_tag(self, tag, message, ref_sha, ref_type):
+        """
+            Creates an annoted tag
+        """
+        # create a tag object
+        tag = self._repo.create_git_tag(tag=tag,
+                                        message=message,
+                                        object=ref_sha,
+                                        type=ref_type,
+                                        tagger=self._committer
+                                        )
+        # Register the tag object
+        tag_ref = "/refs/tags/{0}".format(tag)
+        self._repo.create_git_ref(ref=tag_ref,
+                                  sha=tag.sha
+                                  )
+
+    def create_release(self, tag, name, message, draft=True, prerelease=False):
+        """
+            Creates a release draft
+        """
+        self._repo.create_git_release(tag=tag,
+                                      name=name,
+                                      message=message,
+                                      draft=draft,
+                                      prerelease=prerelease
+                                      )
