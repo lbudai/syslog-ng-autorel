@@ -100,7 +100,7 @@ class GithubPlatform(object):
                                               tree=[new_tree_specs]
                                               )
         ## create a new commit on the new_tree
-        parent_commits = [latest_commit]
+        parent_commits = [latest_commit.commit]
         created_commit = self._repo.create_git_commit(message=commit_message,
                                                       tree=new_tree,
                                                       parents=parent_commits,
