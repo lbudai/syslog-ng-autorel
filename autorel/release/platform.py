@@ -1,6 +1,6 @@
 """
     @module platform
-    @class Platform
+    @class GithubPlatform
     - Abstracts out the platform dependence of the release cycle
     - All platfroms such as Github, Gitlab etc. comply with the API
 """
@@ -14,7 +14,7 @@ from .settings import (GITHUB_AUTH_TOKEN,
                        )
 
 
-class Platform(object):
+class GithubPlatform(object):
     """
         Exposes higher level platform API
     """
@@ -38,6 +38,18 @@ class Platform(object):
         """
         self._contributor_name = name
         self._contributor_email = email
+
+    def get_tagged_commit(self, tag):
+        """
+            Get the SHA value of the commit tagged with tag
+        """
+        if not tag.startwith("tags/"):
+            tag = "tags/" + tag
+        ref_object = self._repo.get_git_ref(tag)
+        tag_sha = ref_object.object.sha
+        tag_object = self._repo.get_git_tag(tag_sha)
+        linked_commit_sha = tag_object.object.sha
+        return linked_commit_sha
 
     def get_current_release(self):
         """
@@ -121,7 +133,7 @@ class Platform(object):
                                         tagger=self._committer
                                         )
         # Register the tag object
-        tag_ref = "/refs/tags/{0}".format(tag)
+        tag_ref = "refs/tags/{0}".format(tag)
         self._repo.create_git_ref(ref=tag_ref,
                                   sha=tag.sha
                                   )
