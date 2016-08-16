@@ -3,6 +3,9 @@
     This module provides abstraction layer over docker-py
 """
 import logging
+import os
+import random
+import string
 import sys
 from docker import Client
 
@@ -39,6 +42,15 @@ class Docker(object):
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         channel.setFormatter(formatter)
         self._logger.addHandler(channel)
+
+    def _generate_tag(self):
+        """
+            Generate a random tag for naming the builded image
+        """
+        space = string.ascii_lowercase
+        tag_length = 8
+        tag = ''.join(random.choice(space) for _ in range(tag_length))
+        return tag
 
     def _cli_command(self, command_, *args, response=False, **kwargs):
         """
@@ -83,28 +95,31 @@ class Docker(object):
                                         response=True
                                         )
         if exec_status["ExitCode"] != 0:
-            raise DockerException(response)
+            raise DockerException(exec_status)
 
 
-    def _setup(self, image, source_directory):
+    def _setup(self, image_path, input_directory):
         """
             Sets up the building environment by pulling the
             image and starting the docker container
         """
         ## Pull the docker image
         self._logger.info("Pulling the {0} docker image"
-            .format(image))
-        self._cli_command("pull",
-                          repository=image
+            .format(image_path))
+        image_tag = self._generate_tag()
+        self._cli_command("build",
+                          dockerfile=image_path,
+                          path=os.path.dirname(image_path),
+                          tag=image_tag
                           )
-        self._logger.info("Image successfuly pulled")
+        self._logger.info("Image successfuly build")
 
         ## Create a container in daemon mode
         self._logger.info("Running a container using the image")
         host_config = self._cli_command("create_host_config",
                                         response=True,
                                         binds={
-                                            source_directory : {
+                                            input_directory : {
                                                    'bind': '/home/',
                                                    'mode': 'rw'
                                                }
@@ -112,7 +127,7 @@ class Docker(object):
                                         )
         container = self._cli_command("create_container",
                                       response=True,
-                                      image=image,
+                                      image=image_tag,
                                       detach=True,
                                       command="tail -f /dev/null",
                                       volumes=["/home/"],
@@ -127,27 +142,28 @@ class Docker(object):
         self._logger.info("Container ({0}) is successfuly running"
             .format(self._container_id))
 
-    def run(self, image, input_directory, build_commands, transformer):
+    def run(self, image_path, input_directory, build_commands, transformer):
         """
-            Runs build instructions corresponding to the provided 
-            build commands by running a docker container using the 
+            Runs build instructions corresponding to the provided
+            build commands by running a docker container using the
             provided image. Finally the result is returned after carying out
             a tranformer operation
         """
         if self._running:
             raise DockerException("Another container is running with ID : {0}"
                 .format(self._container_id))
-        self._setup(image,
+        self._logger.info("Running a docker container using {0}".format(image_path))
+        self._setup(image_path,
                     input_directory
                     )
-        self._logger.info("Running a docker container using {0}".format(image))
-        for cmd in builder.build_commands:
+        for cmd in build_commands:
             self._logger.info("Running : {0}".format(cmd))
             self._exec_in_container(cmd)
             self._logger.info("Finished : {0}".format(cmd))
         # Stop the container
         self._cli_command("stop",
-                          container=self._container_id)
+                          container=self._container_id,
+                          response=True)
         self._logger.info("Finished running docker container")
         self._running = False
-        return tranformer(result)
+        return transformer(input_directory)
