@@ -6,6 +6,7 @@
 """
 import pygit2
 import os
+import datetime
 from autorel.changelog_generator import ChangelogGenerator
 from autorel.utis import Docker
 from autorel.build_helpers import (get_debian_source_building_commands,
@@ -14,7 +15,8 @@ from autorel.build_helpers import (get_debian_source_building_commands,
                                    source_tarball_transformer
                                    )
 from .platform import GithubPlatform
-from .settings import (PROJECT,
+from .settings import (PACKAGE,
+                       PROJECT,
                        PROJECT_CLONE_URL,
                        PROJECT_CLONE_PATH,
                        COMMITTER_NAME,
@@ -23,7 +25,10 @@ from .settings import (PROJECT,
                        SOURCE_TARBALL_DOCKERFILE,
                        DEBIAN_SOURCE_DOCKERFILE,
                        PULL_REQUEST_TITLE,
-                       PULL_REQUEST_BODY
+                       PULL_REQUEST_BODY,
+                       TZ_OFFSET,
+                       DEBIAN_CHANGELOG_FILE,
+                       DEBIAN_CHANGELOG
                        )
 
 
@@ -63,7 +68,7 @@ class SyslogNgRelease(object):
                                            latest_commit_sha
                                            )
         return changelog_gen.render()
-        
+
     def _create_release_branch(self):
         """
             Create a release branch from the target branch
@@ -73,16 +78,32 @@ class SyslogNgRelease(object):
                                              self._release_branch
                                              )
 
-    def _increase_version(self, version):
+    def _increase_version(self):
         """
             Increase the version number in the repo
         """
-        with open(VERSION_FILE,'w') as f:
+        with open(VERSION_FILE,"w") as f:
             f.write(self._version)
         self._version_bump_commit = self._platform_cli.create_commit(self._release_branch,
                                                                      VERSION_FILE,
                                                                      self._version_bump_msg
                                                                      )
+
+    def _edit_debian_changelog(self):
+        date = datetime.datetime.now().isoformat()
+        date += TZ_OFFSET
+        debian_changelog = DEBIAN_CHANGELOG.format(PACKAGE_NAME=PACKAGE,
+                                                   PACKAGE_VERSION=self._version,
+                                                   RELEASE_TAG=self._release_tag,
+                                                   CURRDATE=date
+                                                   )
+        with open(DEBIAN_CHANGELOG_FILE,"w") as f:
+            f.write(debian_changelog)
+        self._platform_cli.create_commit(self._release_branch,
+                                         DEBIAN_CHANGELOG_FILE,
+                                         self._version_bump_msg
+                                         )
+
 
     def _create_tag(self):
         """
@@ -113,7 +134,7 @@ class SyslogNgRelease(object):
         """
         build_commands = get_debian_source_building_commands(distball_location)
         docker = Docker()
-        distball_parent_directory = os.path.abspath(os.path,dirnam(distball_location))
+        distball_parent_directory = os.path.abspath(os.path.dirname(distball_location))
         return docker.run(DEBIAN_SOURCE_DOCKERFILE,
                           distball_parent_directory,
                           build_commands,
@@ -121,9 +142,9 @@ class SyslogNgRelease(object):
                           )
 
 
-    def _build_debian_binary(self):
+    def _upload_to_obs(self):
         """
-            Builds debian packages using OBS
+            Uploads the repository to OBS
         """
         pass
         # need to integrate with OBS
