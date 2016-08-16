@@ -5,4 +5,5 @@ RUN touch /home/source.build.log
 RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get install \
+       dpkg-dev -y \
     | tee --append /home/source.build.log
