@@ -79,6 +79,7 @@ def get_source_tarball_building_commands(input_directory):
         commands[index] = commands[index].format(source_location)
     return commands
 
+
 def debian_source_transformer(input_directory):
     """
         Returns a DebianSourcePackage instance
@@ -96,6 +97,7 @@ def debian_source_transformer(input_directory):
                                          source_control_file
                                          )
     return source_package
+
 
 def source_tarball_transformer(input_directory):
     """

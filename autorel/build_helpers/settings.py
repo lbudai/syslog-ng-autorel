@@ -4,6 +4,7 @@
 """
 import os
 
+
 ## Path of the build direcory within the source ##
 BUILD_DIRECTORY_SUBPATH = "build"
 
