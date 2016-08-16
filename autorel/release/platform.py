@@ -26,7 +26,7 @@ class GithubPlatform(object):
     @property
     def _contributor(self):
         date = datetime.datetime.now().isoformat()
-        date += "+05:30"
+        date += TZ_OFFSET
         return InputGitAuthor(name=self._contributor_name,
                               email=self._contributor_email,
                               date=date
