@@ -7,6 +7,8 @@
 import pygit2
 import os
 import datetime
+import shutil
+import tempfile
 from autorel.changelog_generator import ChangelogGenerator
 from autorel.utis import Docker
 from autorel.build_helpers import (get_debian_source_building_commands,
@@ -28,7 +30,8 @@ from .settings import (PACKAGE,
                        PULL_REQUEST_BODY,
                        TZ_OFFSET,
                        DEBIAN_CHANGELOG_FILE,
-                       DEBIAN_CHANGELOG
+                       DEBIAN_CHANGELOG,
+                       SOURCE_MOUNT_DIRECTORY
                        )
 
 
@@ -49,13 +52,13 @@ class SyslogNgRelease(object):
         self._version_bump_msg = "autorel bumped the version to {0}".format(self._version)
         self._tag_msg = "{0} release".format(self._release_name)
 
-    def _clone_repo(self):
+    def _clone_repo(self, branch):
         """
             Clones the remote repository
         """
         self._repo = pygit2.clone_repository(url=PROJECT_CLONE_URL,
                                              path=PROJECT_CLONE_PATH,
-                                             checkout_branch=self._target_branch
+                                             checkout_branch=branch
                                              )
 
     def _generate_changelog(self):
@@ -119,7 +122,7 @@ class SyslogNgRelease(object):
         """
             Generates the distribution tarball from the source code
         """
-        build_commands = get_source_tarball_building_commands(source_locaction)
+        build_commands = get_source_tarball_building_commands(SOURCE_MOUNT_DIRECTORY)
         docker = Docker()
         source_parent_directory = os.path.abspath(os.path.dirname(source_locaction))
         return docker.run(SOURCE_TARBALL_DOCKERFILE,
@@ -132,7 +135,7 @@ class SyslogNgRelease(object):
         """
             Generated the debian source package
         """
-        build_commands = get_debian_source_building_commands(distball_location)
+        build_commands = get_debian_source_building_commands(SOURCE_MOUNT_DIRECTORY)
         docker = Docker()
         distball_parent_directory = os.path.abspath(os.path.dirname(distball_location))
         return docker.run(DEBIAN_SOURCE_DOCKERFILE,
@@ -142,12 +145,22 @@ class SyslogNgRelease(object):
                           )
 
 
-    def _upload_to_obs(self):
+    def _upload_to_obs(self, debian_source_package):
         """
             Uploads the repository to OBS
         """
-        pass
-        # need to integrate with OBS
+        obs_client = OBS(OBS_PROJECT,OBS_PACKAGE)
+        current_files = obs_client.list_files()
+        # delete the current set of files
+        obs_client.remove_files(current_files)
+        # add the new set of files
+        new_files = [
+            debian_source_package.distribution_tarball_path,
+            debian_source_package.patch_file_path,
+            debian_source_package.source_control_file_path
+        ]
+        obs_client.add_files(new_files)
+        obs_client.commit(self._version_bump_msg)
 
 
     def _send_pull_request(self):
@@ -177,12 +190,30 @@ class SyslogNgRelease(object):
             Carry out the release operation
         """
         self._setup()
-        self._clone_repo()
+        # clone the master branch
+        self._clone_repo(self._target_branch)
+        # generate changelog using master
         changelog = self._generate_changelog()
+        # create a release branch
         self._create_release_branch()
+        # increase version on the release branch
         self._increase_version()
         self._create_release_branch()
+        # tag it
         self._create_tag()
+        # clone the release branch
+        self._clone_repo(self._release_branch)
+        # build the distribution tarball
         distball_location = self._build_distball(PROJECT_CLONE_PATH)
+        # copy the distball to a seperate location
+        distball_directory = tempfile.mkdtemp()
+        shutil.copy(distball_location,distball_directory)
+        distball_location = os.path.join(distball_directory,
+                                         os.path.basename(distball_location)
+                                         )
+        # build debian source
         debian_source_package = self._build_debian_source(distball_location)
+        # upload to obs
+        self._upload_to_obs(debian_source_package)
+        # send pull request
         self._send_pull_request()
