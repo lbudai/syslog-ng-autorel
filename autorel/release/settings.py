@@ -1,4 +1,5 @@
 import tempfile
+import os
 
 
 PROJECT = "black-perl/syslog-ng"
